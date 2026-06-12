@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0f0f">
+<title>BJJ Journal</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: rgba(255,255,255,0.08);
+    --text: #f0f0f0;
+    --muted: #888;
+    --accent: #c8e86b;
+    --accent-dim: rgba(200,232,107,0.12);
+    --accent-border: rgba(200,232,107,0.3);
+    --red: #e86b6b;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  #app { display: flex; flex-direction: column; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+
+  /* SCREENS */
+  .screen { display: none; flex-direction: column; height: 100%; }
+  .screen.active { display: flex; }
+
+  /* HOME SCREEN */
+  #home { padding: 0; }
+  .home-top { padding: 48px 24px 24px; }
+  .home-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+  .logo-mark { width: 36px; height: 36px; border-radius: 10px; background: var(--accent); display: flex; align-items: center; justify-content: center; }
+  .logo-mark svg { width: 20px; height: 20px; }
+  .logo-text { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+  .home-heading { font-size: 32px; font-weight: 700; letter-spacing: -1px; line-height: 1.15; margin-bottom: 8px; }
+  .home-sub { font-size: 15px; color: var(--muted); line-height: 1.5; }
+
+  .home-actions { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .btn-record { background: var(--accent); color: #0f0f0f; border: none; border-radius: var(--radius); padding: 18px 24px; font-size: 17px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; letter-spacing: -0.2px; transition: opacity 0.15s, transform 0.1s; }
+  .btn-record:active { opacity: 0.85; transform: scale(0.98); }
+  .btn-record svg { width: 22px; height: 22px; }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 18px 24px; font-size: 16px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; transition: background 0.15s; }
+  .btn-secondary:active { background: var(--surface2); }
+  .btn-secondary svg { width: 20px; height: 20px; color: var(--muted); }
+
+  .recent-section { flex: 1; overflow-y: auto; padding: 0 24px 32px; }
+  .section-title { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .session-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+  .session-card:active { background: var(--surface2); }
+  .session-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .session-date { font-size: 14px; font-weight: 600; }
+  .session-type-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; background: var(--accent-dim); color: var(--accent); border: 0.5px solid var(--accent-border); }
+  .session-preview { font-size: 13px; color: var(--muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty-state { text-align: center; padding: 48px 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  /* RECORD SCREEN */
+  #record { background: var(--bg); }
+  .record-nav { display: flex; align-items: center; justify-content: space-between; padding: 56px 20px 16px; }
+  .nav-btn { background: var(--surface); border: 0.5px solid var(--border); border-radius: 50px; padding: 8px 16px; font-size: 14px; color: var(--text); cursor: pointer; }
+  .nav-btn:active { background: var(--surface2); }
+  .record-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 32px; gap: 32px; }
+  .record-status { font-size: 15px; color: var(--muted); text-align: center; min-height: 22px; }
+  .record-status.listening { color: var(--accent); }
+  .record-status.thinking { color: var(--muted); }
+
+  /* Waveform / pulse ring */
+  .mic-container { position: relative; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; }
+  .pulse-ring { position: absolute; width: 140px; height: 140px; border-radius: 50%; border: 1.5px solid var(--accent); opacity: 0; transform: scale(0.8); transition: opacity 0.3s; }
+  .pulse-ring.active { animation: pulseRing 1.8s ease-out infinite; }
+  @keyframes pulseRing {
+    0% { transform: scale(0.85); opacity: 0.5; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  .pulse-ring-2 { animation-delay: 0.6s !important; }
+  .mic-btn { width: 100px; height: 100px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; position: relative; z-index: 1; transition: transform 0.1s, background 0.2s; }
+  .mic-btn.recording { background: var(--red); }
+  .mic-btn:active { transform: scale(0.94); }
+  .mic-btn svg { width: 36px; height: 36px; color: #0f0f0f; }
+  .mic-btn.recording svg { color: #fff; }
+
+  .timer { font-size: 42px; font-weight: 700; letter-spacing: -2px; color: var(--text); font-variant-numeric: tabular-nums; min-width: 90px; text-align: center; }
+  .timer.hidden { opacity: 0; }
+
+  .transcript-preview { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; width: 100%; min-height: 80px; max-height: 160px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: var(--text); word-break: break-word; }
+  .transcript-preview.empty { color: var(--muted); font-style: italic; }
+
+  .record-bottom { padding: 24px 24px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .btn-process { background: var(--accent); color: #0f0f0f; border: none; border-radius: var(--radius); padding: 18px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; transition: opacity 0.15s; }
+  .btn-process:disabled { opacity: 0.3; cursor: default; }
+  .btn-process:not(:disabled):active { opacity: 0.85; }
+  .btn-clear-transcript { background: transparent; color: var(--muted); border: none; font-size: 14px; cursor: pointer; padding: 8px; text-align: center; width: 100%; }
+
+  /* CHAT SCREEN */
+  #chat { background: var(--bg); }
+  .chat-nav { display: flex; align-items: center; gap: 12px; padding: 56px 20px 12px; }
+  .chat-nav-title { font-size: 16px; font-weight: 600; flex: 1; }
+  .chat-messages { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 85%; display: flex; flex-direction: column; }
+  .msg.user { align-self: flex-end; }
+  .msg.assistant { align-self: flex-start; }
+  .msg-bubble { padding: 12px 15px; border-radius: 18px; font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .msg.user .msg-bubble { background: var(--surface2); border-bottom-right-radius: 4px; }
+  .msg.assistant .msg-bubble { background: var(--surface); border: 0.5px solid var(--border); border-bottom-left-radius: 4px; color: var(--text); }
+  .msg-bubble.loading { color: var(--muted); font-style: italic; }
+
+  .chat-input-area { padding: 12px 16px 32px; display: flex; gap: 8px; align-items: flex-end; background: var(--bg); border-top: 0.5px solid var(--border); }
+  .chat-textarea { flex: 1; background: var(--surface); border: 0.5px solid var(--border); border-radius: 20px; padding: 10px 16px; font-size: 15px; color: var(--text); font-family: inherit; resize: none; min-height: 42px; max-height: 120px; line-height: 1.4; outline: none; }
+  .chat-textarea::placeholder { color: var(--muted); }
+  .chat-send-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: opacity 0.15s; }
+  .chat-send-btn:disabled { opacity: 0.3; cursor: default; }
+  .chat-send-btn svg { width: 18px; height: 18px; color: #0f0f0f; }
+  .chat-mic-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--surface); border: 0.5px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .chat-mic-btn.recording { background: var(--red); border-color: var(--red); }
+  .chat-mic-btn svg { width: 18px; height: 18px; color: var(--muted); }
+  .chat-mic-btn.recording svg { color: #fff; }
+
+  /* LOG VIEW SCREEN */
+  #logview { background: var(--bg); }
+  .logview-nav { display: flex; align-items: center; gap: 12px; padding: 56px 20px 16px; }
+  .logview-content { flex: 1; overflow-y: auto; padding: 0 20px 40px; }
+  .log-section { margin-bottom: 24px; }
+  .log-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .log-field { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 8px; }
+  .log-field-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .log-field-value { font-size: 15px; line-height: 1.5; }
+  .stars-display { color: var(--accent); font-size: 16px; letter-spacing: 2px; }
+  .meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .meta-pill { background: var(--surface); border: 0.5px solid var(--border); border-radius: 20px; padding: 6px 14px; font-size: 13px; }
+  .meta-pill span { color: var(--muted); font-size: 12px; }
+  .chip-small { display: inline-block; background: var(--accent-dim); color: var(--accent); border: 0.5px solid var(--accent-border); border-radius: 20px; padding: 3px 10px; font-size: 12px; margin: 3px 3px 0 0; }
+
+  /* API key screen */
+  #apikey { background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 28px; gap: 20px; text-align: center; }
+  #apikey h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  #apikey p { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .api-input { width: 100%; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 15px; color: var(--text); font-family: inherit; outline: none; }
+  .api-input:focus { border-color: var(--accent); }
+  .btn-api-save { background: var(--accent); color: #0f0f0f; border: none; border-radius: var(--radius); padding: 16px; font-size: 16px; font-weight: 600; cursor: pointer; width: 100%; }
+
+  .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--surface2); color: var(--text); padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity 0.3s, transform 0.3s; pointer-events: none; white-space: nowrap; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- API KEY SCREEN -->
+  <div id="apikey" class="screen active">
+    <div class="logo-mark" style="width:56px;height:56px;border-radius:16px;margin-bottom:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#0f0f0f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    </div>
+    <h2>BJJ Journal</h2>
+    <p>Enter your Anthropic API key to get started. Your key is stored only on this device.</p>
+    <input class="api-input" id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" />
+    <button class="btn-api-save" onclick="saveApiKey()">Save & continue</button>
+    <p style="font-size:12px; color: var(--muted);">Get a key at console.anthropic.com</p>
+  </div>
+
+  <!-- HOME SCREEN -->
+  <div id="home" class="screen">
+    <div class="home-top">
+      <div class="home-logo">
+        <div class="logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#0f0f0f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <span class="logo-text">BJJ Journal</span>
+      </div>
+      <h1 class="home-heading">Train.<br>Talk.<br>Track.</h1>
+      <p class="home-sub">Voice-log your sessions on the drive home.</p>
+    </div>
+    <div class="home-actions">
+      <button class="btn-record" onclick="showScreen('record')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        Log tonight's session
+      </button>
+      <button class="btn-secondary" onclick="showChatFresh()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat with Claude
+      </button>
+    </div>
+    <div class="recent-section">
+      <div class="section-title">Recent sessions</div>
+      <div id="sessions-list"></div>
+    </div>
+  </div>
+
+  <!-- RECORD SCREEN -->
+  <div id="record" class="screen">
+    <div class="record-nav">
+      <button class="nav-btn" onclick="showScreen('home')">← Back</button>
+      <span style="font-size:14px;color:var(--muted);">Voice log</span>
+      <div style="width:60px"></div>
+    </div>
+    <div class="record-center">
+      <p class="record-status" id="record-status">Tap to start recording</p>
+      <div class="mic-container">
+        <div class="pulse-ring" id="ring1"></div>
+        <div class="pulse-ring pulse-ring-2" id="ring2"></div>
+        <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+      </div>
+      <div class="timer hidden" id="rec-timer">0:00</div>
+      <div class="transcript-preview empty" id="transcript-preview">Your words will appear here as you speak…</div>
+    </div>
+    <div class="record-bottom">
+      <button class="btn-process" id="process-btn" disabled onclick="processTranscript()">Process with Claude →</button>
+      <button class="btn-clear-transcript" onclick="clearTranscript()">Clear & re-record</button>
+    </div>
+  </div>
+
+  <!-- CHAT SCREEN -->
+  <div id="chat" class="screen">
+    <div class="chat-nav">
+      <button class="nav-btn" onclick="showScreen('home')">← Back</button>
+      <span class="chat-nav-title" id="chat-title">Session chat</span>
+      <button class="nav-btn" id="save-btn" style="display:none" onclick="saveCurrentSession()">Save</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-area">
+      <button class="chat-mic-btn" id="chat-mic-btn" onclick="toggleChatMic()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+      </button>
+      <textarea class="chat-textarea" id="chat-input" placeholder="Ask a follow-up…" rows="1" onkeydown="chatKeydown(event)" oninput="autoResize(this)"></textarea>
+      <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- LOG VIEW SCREEN -->
+  <div id="logview" class="screen">
+    <div class="logview-nav">
+      <button class="nav-btn" onclick="showScreen('home')">← Back</button>
+      <span style="flex:1; font-size:16px; font-weight:600;" id="logview-title">Session</span>
+      <button class="nav-btn" onclick="deleteCurrentLog()">Delete</button>
+    </div>
+    <div class="logview-content" id="logview-content"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────
+let apiKey = localStorage.getItem('bjj_api_key') || '';
+let sessions = JSON.parse(localStorage.getItem('bjj_sessions') || '[]');
+let chatHistory = [];
+let currentSessionData = null;
+let viewingSessionIdx = null;
+
+let mediaRecorder = null;
+let audioChunks = [];
+let isRecording = false;
+let recInterval = null;
+let recSeconds = 0;
+let fullTranscript = '';
+
+let recognition = null;
+let chatRecognition = null;
+let isChatRecording = false;
+
+// ─── Init ─────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  if (apiKey) showScreen('home');
+  renderSessions();
+});
+
+function saveApiKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  if (!val.startsWith('sk-')) { showToast('Enter a valid API key'); return; }
+  apiKey = val;
+  localStorage.setItem('bjj_api_key', apiKey);
+  showScreen('home');
+}
+
+// ─── Screen routing ───────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+}
+
+function showChatFresh() {
+  chatHistory = [];
+  currentSessionData = null;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('save-btn').style.display = 'none';
+  document.getElementById('chat-title').textContent = 'Chat with Claude';
+  showScreen('chat');
+  addMessage('assistant', "Hey! Tell me about your BJJ session — what happened tonight?");
+}
+
+// ─── Recording (Web Speech API) ───────────────────────────────────────
+function toggleRecording() {
+  if (isRecording) stopRecording();
+  else startRecording();
+}
+
+function startRecording() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showToast('Speech recognition not supported on this browser'); return; }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-AU';
+
+  let finalText = fullTranscript;
+
+  recognition.onresult = (e) => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    fullTranscript = finalText;
+    const display = (finalText + interim).trim();
+    const el = document.getElementById('transcript-preview');
+    el.textContent = display || '';
+    el.classList.toggle('empty', !display);
+    document.getElementById('process-btn').disabled = !display;
+  };
+
+  recognition.onerror = (e) => { if (e.error !== 'no-speech') showToast('Mic error: ' + e.error); };
+  recognition.onend = () => { if (isRecording) recognition.start(); };
+
+  recognition.start();
+  isRecording = true;
+  recSeconds = 0;
+
+  document.getElementById('mic-btn').classList.add('recording');
+  document.getElementById('record-status').textContent = 'Listening…';
+  document.getElementById('record-status').className = 'record-status listening';
+  document.getElementById('ring1').classList.add('active');
+  document.getElementById('ring2').classList.add('active');
+  document.getElementById('rec-timer').classList.remove('hidden');
+
+  recInterval = setInterval(() => {
+    recSeconds++;
+    const m = Math.floor(recSeconds / 60);
+    const s = recSeconds % 60;
+    document.getElementById('rec-timer').textContent = m + ':' + String(s).padStart(2,'0');
+  }, 1000);
+}
+
+function stopRecording() {
+  if (recognition) recognition.stop();
+  isRecording = false;
+  clearInterval(recInterval);
+
+  document.getElementById('mic-btn').classList.remove('recording');
+  document.getElementById('record-status').textContent = fullTranscript ? 'Done — review and process' : 'Tap to start recording';
+  document.getElementById('record-status').className = 'record-status';
+  document.getElementById('ring1').classList.remove('active');
+  document.getElementById('ring2').classList.remove('active');
+}
+
+function clearTranscript() {
+  fullTranscript = '';
+  stopRecording();
+  document.getElementById('transcript-preview').textContent = 'Your words will appear here as you speak…';
+  document.getElementById('transcript-preview').className = 'transcript-preview empty';
+  document.getElementById('process-btn').disabled = true;
+  document.getElementById('rec-timer').classList.add('hidden');
+  recSeconds = 0;
+}
+
+// ─── Process transcript → chat ────────────────────────────────────────
+async function processTranscript() {
+  if (!fullTranscript.trim()) return;
+  const transcript = fullTranscript.trim();
+  clearTranscript();
+
+  chatHistory = [];
+  currentSessionData = null;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-title').textContent = 'Processing…';
+  document.getElementById('save-btn').style.display = 'none';
+  showScreen('chat');
+
+  addMessage('user', transcript);
+
+  const systemPrompt = `You are a BJJ training journal assistant. The user has voice-recorded their session notes on the drive home from training.
+
+Your job is to:
+1. First, respond conversationally — acknowledge what they shared and ask 1-2 smart follow-up questions if anything is missing (e.g. duration, what they drilled, key lesson). Keep this brief and natural.
+2. Once you have enough info (either from the first message or after a couple of follow-ups), tell the user you're ready to save the log and show them the structured entry using this exact format:
+
+---
+📅 DATE: [date - infer from context or use "today"]
+⏱ DURATION: [x min]
+🥋 TYPE: [Gi / No-gi / Open mat / etc]
+🔵 BELT: [if mentioned]
+🔄 ROUNDS: [number if mentioned]
+
+📚 TECHNIQUES DRILLED:
+• [technique 1]
+• [technique 2]
+
+🎯 FOCUS AREAS: [area 1, area 2]
+
+⭐ SELF-ASSESSMENT:
+• Overall: [★★★★☆ style + brief note]
+• Energy: [★★★☆☆]
+• Technical: [★★★★☆]
+• Mental: [★★★☆☆]
+
+✅ WHAT WORKED:
+[prose notes]
+
+❌ WHAT DIDN'T WORK:
+[prose notes]
+
+💡 KEY LESSON:
+[the main takeaway]
+
+🔨 DRILL BEFORE NEXT SESSION:
+[specific things to work on]
+
+🗣 COACH NOTES:
+[if any]
+
+🩹 BODY/INJURY NOTES:
+[if any, otherwise "Nothing to note"]
+---
+
+After showing the log, ask "Does this look right? I can adjust anything before saving."
+
+Be warm, supportive, and speak like someone who understands BJJ. Use real terminology. Don't be sycophantic.`;
+
+  await streamChat(systemPrompt, transcript);
+  document.getElementById('chat-title').textContent = 'Session log';
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────
+function addMessage(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = `<div class="msg-bubble">${escHtml(text)}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  if (role !== 'loading') chatHistory.push({ role, content: text });
+  return div;
+}
+
+function addLoadingMessage() {
+  const msgs = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.innerHTML = '<div class="msg-bubble loading">Thinking…</div>';
+  div.id = 'loading-msg';
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+async function streamChat(system, userMsg) {
+  const loadingEl = addLoadingMessage();
+  document.getElementById('chat-send-btn').disabled = true;
+
+  const messages = userMsg
+    ? [...chatHistory.slice(0,-1).map(m => ({role:m.role, content:m.content})), {role:'user',content:userMsg}]
+    : chatHistory.map(m => ({role:m.role, content:m.content}));
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        system: system || getSysPrompt(),
+        messages
+      })
+    });
+
+    const data = await res.json();
+    loadingEl.remove();
+
+    if (data.error) {
+      const msg = data.error.message || 'Unknown error';
+      if (data.error.type === 'authentication_error') {
+        addMessage('assistant', '⚠️ API key looks wrong — go back to settings and re-enter it.');
+        localStorage.removeItem('bjj_api_key');
+      } else {
+        addMessage('assistant', '⚠️ API error: ' + msg);
+      }
+      document.getElementById('chat-send-btn').disabled = false;
+      return;
+    }
+
+    const reply = data.content[0].text;
+    addMessage('assistant', reply);
+
+    // Check if reply contains a structured log
+    if (reply.includes('📅 DATE:') || reply.includes('WHAT WORKED') || reply.includes('KEY LESSON')) {
+      currentSessionData = { raw: reply, date: new Date().toISOString() };
+      document.getElementById('save-btn').style.display = 'block';
+    }
+  } catch(e) {
+    loadingEl.remove();
+    const errMsg = e.message || '';
+    if (errMsg.includes('fetch') || errMsg.includes('network') || errMsg.includes('Failed')) {
+      addMessage('assistant', '⚠️ Network error — check your internet connection and try again.');
+    } else {
+      addMessage('assistant', '⚠️ Something went wrong: ' + errMsg);
+    }
+  }
+  document.getElementById('chat-send-btn').disabled = false;
+}
+
+function getSysPrompt() {
+  return `You are a BJJ training journal assistant helping the user track and reflect on their grappling sessions. 
+Be warm, knowledgeable about BJJ (use correct terminology), and help them extract useful insights from their sessions.
+If they share a structured log, you can help them refine it. Keep responses concise and practical.`;
+}
+
+function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  autoResize(input);
+  addMessage('user', text);
+  streamChat(null, null);
+}
+
+function chatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// Chat mic
+function toggleChatMic() {
+  if (isChatRecording) stopChatMic();
+  else startChatMic();
+}
+
+function startChatMic() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { showToast('Voice not supported'); return; }
+  chatRecognition = new SpeechRecognition();
+  chatRecognition.lang = 'en-AU';
+  chatRecognition.interimResults = false;
+  chatRecognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById('chat-input').value = text;
+    autoResize(document.getElementById('chat-input'));
+    stopChatMic();
+  };
+  chatRecognition.onerror = () => stopChatMic();
+  chatRecognition.onend = () => { isChatRecording = false; document.getElementById('chat-mic-btn').classList.remove('recording'); };
+  chatRecognition.start();
+  isChatRecording = true;
+  document.getElementById('chat-mic-btn').classList.add('recording');
+}
+
+function stopChatMic() {
+  if (chatRecognition) chatRecognition.stop();
+  isChatRecording = false;
+  document.getElementById('chat-mic-btn').classList.remove('recording');
+}
+
+// ─── Save / Sessions ──────────────────────────────────────────────────
+function saveCurrentSession() {
+  if (!currentSessionData) return;
+  sessions.unshift(currentSessionData);
+  localStorage.setItem('bjj_sessions', JSON.stringify(sessions));
+  currentSessionData = null;
+  document.getElementById('save-btn').style.display = 'none';
+  showToast('Session saved!');
+  renderSessions();
+}
+
+function renderSessions() {
+  const el = document.getElementById('sessions-list');
+  if (!sessions.length) {
+    el.innerHTML = '<div class="empty-state">No sessions yet.<br>Log your first one after training.</div>';
+    return;
+  }
+  el.innerHTML = sessions.map((s, i) => {
+    const dateStr = parseLogDate(s.raw) || formatDate(s.date);
+    const type = parseLogType(s.raw) || 'Session';
+    const preview = parsePreview(s.raw);
+    return `<div class="session-card" onclick="viewSession(${i})">
+      <div class="session-card-top">
+        <span class="session-date">${dateStr}</span>
+        <span class="session-type-badge">${type}</span>
+      </div>
+      <div class="session-preview">${preview}</div>
+    </div>`;
+  }).join('');
+}
+
+function viewSession(idx) {
+  viewingSessionIdx = idx;
+  const s = sessions[idx];
+  document.getElementById('logview-title').textContent = parseLogDate(s.raw) || formatDate(s.date);
+  document.getElementById('logview-content').innerHTML = renderLogView(s.raw);
+  showScreen('logview');
+}
+
+function deleteCurrentLog() {
+  if (viewingSessionIdx === null) return;
+  sessions.splice(viewingSessionIdx, 1);
+  localStorage.setItem('bjj_sessions', JSON.stringify(sessions));
+  viewingSessionIdx = null;
+  renderSessions();
+  showScreen('home');
+  showToast('Session deleted');
+}
+
+function renderLogView(raw) {
+  // Parse the structured log and render it nicely
+  return `<div style="white-space: pre-wrap; font-size:15px; line-height:1.7; color:var(--text); background:var(--surface); border:0.5px solid var(--border); border-radius:var(--radius); padding:20px;">${escHtml(raw)}</div>`;
+}
+
+// ─── Parsers ──────────────────────────────────────────────────────────
+function parseLogDate(raw) {
+  const m = raw.match(/📅 DATE:\s*(.+)/);
+  if (m) return m[1].trim();
+  const m2 = raw.match(/DATE:\s*(.+)/);
+  if (m2) return m2[1].trim();
+  return null;
+}
+function parseLogType(raw) {
+  const m = raw.match(/TYPE:\s*(.+)/);
+  return m ? m[1].trim() : null;
+}
+function parsePreview(raw) {
+  const m = raw.match(/KEY LESSON[:\s]*\n?([\s\S]{0,100})/);
+  if (m) return m[1].replace(/[#*_]/g,'').trim().slice(0,80) + '…';
+  const m2 = raw.match(/WHAT WORKED[:\s]*\n?([\s\S]{0,100})/);
+  if (m2) return m2[1].replace(/[#*_]/g,'').trim().slice(0,80) + '…';
+  return raw.replace(/[📅⏱🥋🔵🔄📚🎯⭐✅❌💡🔨🗣🩹]/g,'').slice(0,80) + '…';
+}
+function formatDate(iso) {
+  if (!iso) return 'Session';
+  return new Date(iso).toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
